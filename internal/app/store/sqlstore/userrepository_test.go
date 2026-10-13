@@ -1,6 +1,7 @@
 package sqlstore_test
 
 import (
+	"context"
 	"fmt"
 	"http-rest-api/internal/app/model"
 	"http-rest-api/internal/app/store"
@@ -17,8 +18,8 @@ func TestUserRepository_Create(t *testing.T) {
 
 	s := sqlstore.New(db)
 	u := model.TestUser(t)
-	assert.NoError(t, s.User().Create(u))
-	assert.EqualError(t, s.User().Create(u), store.ErrDataConflict.Error())
+	assert.NoError(t, s.User().Create(context.Background(), u))
+	assert.EqualError(t, s.User().Create(context.Background(), u), store.ErrDataConflict.Error())
 	assert.NotNil(t, u)
 }
 
@@ -28,14 +29,14 @@ func TestUserRepository_FindByID(t *testing.T) {
 
 	s := sqlstore.New(db)
 	id := 1
-	_, err := s.User().FindByID(id)
+	_, err := s.User().FindByID(context.Background(), id)
 	assert.EqualError(t, err, store.ErrRecordNotFound.Error())
 
-	s.User().Create(&model.User{
+	s.User().Create(context.Background(), &model.User{
 		Name:  "user",
 		Email: "user@example.org",
 	})
-	u, err := s.User().FindByID(id)
+	u, err := s.User().FindByID(context.Background(), id)
 	assert.NoError(t, err)
 	assert.NotNil(t, u)
 }
@@ -46,31 +47,31 @@ func TestUserRepository_GetAll(t *testing.T) {
 
 	s := sqlstore.New(db)
 
-	users, err := s.User().GetAll(10, 0)
+	users, err := s.User().GetAll(context.Background(), 10, 0)
 	assert.NoError(t, err)
 	assert.Empty(t, users)
 
 	for i := 0; i < 5; i++ {
-		err := s.User().Create(&model.User{
+		err := s.User().Create(context.Background(), &model.User{
 			Name:  fmt.Sprintf("user%d", i),
 			Email: fmt.Sprintf("user%d@example.org", i),
 		})
 		assert.NoError(t, err)
 	}
 
-	users, err = s.User().GetAll(3, 0)
+	users, err = s.User().GetAll(context.Background(), 3, 0)
 	assert.NoError(t, err)
 	assert.Len(t, users, 3)
 
-	users, err = s.User().GetAll(3, 3)
+	users, err = s.User().GetAll(context.Background(), 3, 3)
 	assert.NoError(t, err)
 	assert.Len(t, users, 2)
 
-	users, err = s.User().GetAll(10, 100)
+	users, err = s.User().GetAll(context.Background(), 10, 100)
 	assert.NoError(t, err)
 	assert.Empty(t, users)
 
-	users, err = s.User().GetAll(1, 0)
+	users, err = s.User().GetAll(context.Background(), 1, 0)
 	assert.NoError(t, err)
 	assert.Len(t, users, 1)
 	assert.NotZero(t, users[0].ID)
@@ -87,24 +88,24 @@ func TestUserRepository_Update(t *testing.T) {
 	s := sqlstore.New(db)
 
 	name := "new"
-	_, err := s.User().Update(1, model.UserUpdate{Name: &name})
+	_, err := s.User().Update(context.Background(), 1, model.UserUpdate{Name: &name})
 	assert.EqualError(t, err, store.ErrRecordNotFound.Error())
 
 	age := 20
-	err = s.User().Create(&model.User{
+	err = s.User().Create(context.Background(), &model.User{
 		Name:  "user",
 		Email: "user@example.org",
 		Age:   &age,
 	})
 	assert.NoError(t, err)
 
-	before, err := s.User().FindByID(1)
+	before, err := s.User().FindByID(context.Background(), 1)
 	assert.NoError(t, err)
 	require.NotNil(t, before.Age)
 	assert.Equal(t, 20, *before.Age)
 
 	newName := "updated"
-	updated, err := s.User().Update(1, model.UserUpdate{Name: &newName})
+	updated, err := s.User().Update(context.Background(), 1, model.UserUpdate{Name: &newName})
 	assert.NoError(t, err)
 	assert.Equal(t, "updated", updated.Name)
 	assert.Equal(t, before.Email, updated.Email)
@@ -116,7 +117,7 @@ func TestUserRepository_Update(t *testing.T) {
 
 	newEmail := "new@example.org"
 	newAge := 35
-	updated, err = s.User().Update(1, model.UserUpdate{
+	updated, err = s.User().Update(context.Background(), 1, model.UserUpdate{
 		Email: &newEmail,
 		Age:   &newAge,
 	})
@@ -130,13 +131,13 @@ func TestUserRepository_Update(t *testing.T) {
 		"updated_at should differ from created_at after update")
 
 	zero := 0
-	updated, err = s.User().Update(1, model.UserUpdate{Age: &zero})
+	updated, err = s.User().Update(context.Background(), 1, model.UserUpdate{Age: &zero})
 	assert.NoError(t, err)
 	require.NotNil(t, updated.Age)
 	assert.Equal(t, 0, *updated.Age)
 	assert.Equal(t, "new@example.org", updated.Email)
 
-	got, err := s.User().Update(1, model.UserUpdate{})
+	got, err := s.User().Update(context.Background(), 1, model.UserUpdate{})
 	assert.NoError(t, err)
 	assert.Equal(t, updated.Name, got.Name)
 	assert.Equal(t, updated.Email, got.Email)
@@ -145,7 +146,7 @@ func TestUserRepository_Update(t *testing.T) {
 	assert.False(t, got.UpdatedAt.Equal(got.CreatedAt),
 		"updated_at should differ from created_at")
 
-	fromDB, err := s.User().FindByID(1)
+	fromDB, err := s.User().FindByID(context.Background(), 1)
 	assert.NoError(t, err)
 	assert.Equal(t, "updated", fromDB.Name)
 	assert.Equal(t, "new@example.org", fromDB.Email)
@@ -161,24 +162,24 @@ func TestUserRepository_Delete(t *testing.T) {
 
 	s := sqlstore.New(db)
 
-	err := s.User().Delete(1)
+	err := s.User().Delete(context.Background(), 1)
 	assert.EqualError(t, err, store.ErrRecordNotFound.Error())
 
-	err = s.User().Create(&model.User{
+	err = s.User().Create(context.Background(), &model.User{
 		Name:  "user",
 		Email: "user@example.org",
 	})
 	assert.NoError(t, err)
 
-	_, err = s.User().FindByID(1)
+	_, err = s.User().FindByID(context.Background(), 1)
 	assert.NoError(t, err)
 
-	err = s.User().Delete(1)
+	err = s.User().Delete(context.Background(), 1)
 	assert.NoError(t, err)
 
-	_, err = s.User().FindByID(1)
+	_, err = s.User().FindByID(context.Background(), 1)
 	assert.EqualError(t, err, store.ErrRecordNotFound.Error())
 
-	err = s.User().Delete(1)
+	err = s.User().Delete(context.Background(), 1)
 	assert.EqualError(t, err, store.ErrRecordNotFound.Error())
 }

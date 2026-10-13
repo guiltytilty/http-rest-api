@@ -1,6 +1,7 @@
 package sqlstore
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -15,8 +16,9 @@ type UserRepository struct {
 	store *Store
 }
 
-func (r *UserRepository) GetAll(limit, offset int) ([]*model.User, error) {
-	rows, err := r.store.db.Query(
+func (r *UserRepository) GetAll(ctx context.Context, limit, offset int) ([]*model.User, error) {
+	rows, err := r.store.db.QueryContext(
+		ctx,
 		"SELECT id, name, email, age, created_at, updated_at FROM users ORDER BY id LIMIT $1 OFFSET $2",
 		limit,
 		offset,
@@ -49,12 +51,13 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*model.User, error) {
 	return users, nil
 }
 
-func (r *UserRepository) Create(u *model.User) error {
+func (r *UserRepository) Create(ctx context.Context, u *model.User) error {
 	if err := u.Validate(); err != nil {
 		return store.ErrInvalidData
 	}
 
-	err := r.store.db.QueryRow(
+	err := r.store.db.QueryRowContext(
+		ctx,
 		"INSERT INTO users (name, email, age) VALUES ($1, $2, $3) RETURNING id, name, email, age, created_at, updated_at",
 		u.Name,
 		u.Email,
@@ -78,9 +81,10 @@ func (r *UserRepository) Create(u *model.User) error {
 	return nil
 }
 
-func (r *UserRepository) FindByID(id int) (*model.User, error) {
+func (r *UserRepository) FindByID(ctx context.Context, id int) (*model.User, error) {
 	u := &model.User{}
-	if err := r.store.db.QueryRow(
+	if err := r.store.db.QueryRowContext(
+		ctx,
 		"SELECT id, name, email, age, created_at, updated_at FROM users WHERE id = $1",
 		id,
 	).Scan(
@@ -101,7 +105,7 @@ func (r *UserRepository) FindByID(id int) (*model.User, error) {
 	return u, nil
 }
 
-func (r *UserRepository) Update(id int, upd model.UserUpdate) (*model.User, error) {
+func (r *UserRepository) Update(ctx context.Context, id int, upd model.UserUpdate) (*model.User, error) {
 	set := []string{}
 	args := []any{}
 	i := 1
@@ -123,10 +127,9 @@ func (r *UserRepository) Update(id int, upd model.UserUpdate) (*model.User, erro
 	}
 
 	if len(set) == 0 {
-		return r.FindByID(id)
+		return r.FindByID(ctx, id)
 	}
 
-	//set = append(set, "updated_at = NOW()")
 	args = append(args, id)
 
 	query := fmt.Sprintf(
@@ -136,7 +139,7 @@ func (r *UserRepository) Update(id int, upd model.UserUpdate) (*model.User, erro
 	)
 
 	u := &model.User{}
-	err := r.store.db.QueryRow(query, args...).Scan(
+	err := r.store.db.QueryRowContext(ctx, query, args...).Scan(
 		&u.ID,
 		&u.Name,
 		&u.Email,
@@ -163,8 +166,9 @@ func (r *UserRepository) Update(id int, upd model.UserUpdate) (*model.User, erro
 	return u, nil
 }
 
-func (r *UserRepository) Delete(id int) error {
-	res, err := r.store.db.Exec(
+func (r *UserRepository) Delete(ctx context.Context, id int) error {
+	res, err := r.store.db.ExecContext(
+		ctx,
 		"DELETE FROM users WHERE id = $1",
 		id,
 	)

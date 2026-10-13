@@ -60,6 +60,8 @@ func (s *server) handleUsersCreate() http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
 		req := &request{}
 		if err := json.NewDecoder(r.Body).Decode(req); err != nil {
 			s.error(w, r, http.StatusBadRequest, store.ErrInvalidData)
@@ -72,7 +74,7 @@ func (s *server) handleUsersCreate() http.HandlerFunc {
 			Age:   req.Age,
 		}
 
-		if err := s.store.User().Create(u); err != nil {
+		if err := s.store.User().Create(ctx, u); err != nil {
 			switch {
 			case errors.Is(err, store.ErrDataConflict):
 				s.error(w, r, http.StatusConflict, err)
@@ -90,6 +92,8 @@ func (s *server) handleUsersCreate() http.HandlerFunc {
 
 func (s *server) handleUsersList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
 		limit, err := parseIntQuery(r, "limit", 20)
 		if err != nil {
 			s.error(w, r, http.StatusBadRequest, err)
@@ -109,7 +113,7 @@ func (s *server) handleUsersList() http.HandlerFunc {
 			return
 		}
 
-		users, err := s.store.User().GetAll(limit, offset)
+		users, err := s.store.User().GetAll(ctx, limit, offset)
 		if err != nil {
 			s.error(w, r, http.StatusInternalServerError, err)
 			return
@@ -121,13 +125,15 @@ func (s *server) handleUsersList() http.HandlerFunc {
 
 func (s *server) handleUserGet() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
 		id, err := parseIDParam(r)
 		if err != nil {
 			s.error(w, r, http.StatusBadRequest, err)
 			return
 		}
 
-		u, err := s.store.User().FindByID(id)
+		u, err := s.store.User().FindByID(ctx, id)
 		if err != nil {
 			if errors.Is(err, store.ErrRecordNotFound) {
 				s.error(w, r, http.StatusNotFound, err)
@@ -149,6 +155,8 @@ func (s *server) handleUserUpdate() http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
 		id, err := parseIDParam(r)
 		if err != nil {
 			s.error(w, r, http.StatusBadRequest, err)
@@ -167,7 +175,7 @@ func (s *server) handleUserUpdate() http.HandlerFunc {
 			Age:   req.Age,
 		}
 
-		u, err := s.store.User().Update(id, upd)
+		u, err := s.store.User().Update(ctx, id, upd)
 		if err != nil {
 			switch {
 			case errors.Is(err, store.ErrRecordNotFound):
@@ -186,13 +194,15 @@ func (s *server) handleUserUpdate() http.HandlerFunc {
 
 func (s *server) handleUserDelete() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
 		id, err := parseIDParam(r)
 		if err != nil {
 			s.error(w, r, http.StatusBadRequest, err)
 			return
 		}
 
-		if err := s.store.User().Delete(id); err != nil {
+		if err := s.store.User().Delete(ctx, id); err != nil {
 			if errors.Is(err, store.ErrRecordNotFound) {
 				s.error(w, r, http.StatusNotFound, err)
 				return
